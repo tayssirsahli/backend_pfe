@@ -1,21 +1,21 @@
-import { Controller, Post, Body, ValidationPipe, Get, Res, Req } from '@nestjs/common';
+import { Controller, Post, Body, ValidationPipe, Get, Res, Req, Query, Redirect } from '@nestjs/common';
 import { AuthentificationService } from './authentification.service';
 import { Response } from 'express';
 import { SupabaseService } from 'src/supabase/supabase.service';
 
 @Controller('auth')
 export class AuthController {
-    private supabase;
+  private supabase;
 
-  constructor(private readonly authService: AuthentificationService,private readonly supabaseService: SupabaseService) {
+  constructor(private readonly authService: AuthentificationService, private readonly supabaseService: SupabaseService) {
     this.supabase = this.supabaseService.getClient();
-   }
+  }
 
   @Post('sign-in')
   async signIn(@Body() body: { email: string; password: string }) {
     const { email, password } = body;
     const authResponse = await this.authService.signIn(email, password);
-    return authResponse; 
+    return authResponse;
   }
 
   @Post('session')
@@ -64,5 +64,16 @@ export class AuthController {
   }
 
 
- 
+
+  @Get('linkedin')
+  @Redirect()
+  async redirectToLinkedIn() {
+    return { url: this.authService.getLinkedInAuthUrl() };
+  }
+
+  @Get('linkedin/callback')
+  async handleLinkedInCallback(@Query('code') code: string, @Res() res) {
+    const accessToken = await this.authService.getAccessToken(code);
+    res.redirect(`http://localhost:5174?token=${accessToken}`);
+  }
 }

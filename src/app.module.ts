@@ -10,9 +10,10 @@ import { ScrapedDataController } from './scraped-data/Scraped-data.Controller';
 import { ChatbotModule } from './chatbot/chatbot.module';
 import { GeneratedIdeaService } from './generated-idea/generated-idea.service';
 import { GeneratedIdeaController } from './generated-idea/generated-idea.controller';
+import { LinkedinModule } from './linkedin/linkedin.module';
 
 @Module({
-  imports: [ChatbotModule, ConfigModule.forRoot()],
+  imports: [ChatbotModule, ConfigModule.forRoot(), LinkedinModule],
   controllers: [AppController, AuthController,ScrapedDataController, GeneratedIdeaController],
   providers: [AppService, AuthentificationService, ScrapedDataService, SupabaseService, GeneratedIdeaService],
 })

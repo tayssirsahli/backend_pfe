@@ -11,8 +11,14 @@ export class ChatbotService {
       const response = await axios.post(
         this.apiUrl,
         {
-          model: 'llama3-8b-8192', // Modèle rapide et efficace
-          messages: [{ role: 'user', content: message }],
+          model: 'llama3-8b-8192',
+          messages: [
+            { 
+              role: 'system', 
+              content: "Tu es un assistant spécialisé en communication professionnelle. Reformule les phrases de manière claire, concise et élégante, en adoptant un ton formel et adapté au monde de l'entreprise. Ne fais pas d'introduction, donne uniquement la reformulation." 
+            },
+            { role: 'user', content: message },
+          ],
         },
         {
           headers: {

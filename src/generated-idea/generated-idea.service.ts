@@ -28,4 +28,16 @@ export class GeneratedIdeaService {
     if (error) throw new Error(error.message);
     return data;
   }
+
+  async count(): Promise<number> {
+    const { count, error } = await this.supabase
+      .from('generated_idea')
+      .select('*', { count: 'exact', head: true });
+
+    if (error) {
+      throw new Error(`Erreur lors du comptage des idées générées : ${error.message}`);
+    }
+
+    return count ?? 0;
+  }
 }

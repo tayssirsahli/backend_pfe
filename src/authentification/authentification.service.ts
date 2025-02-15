@@ -2,6 +2,7 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { SupabaseService } from 'src/supabase/supabase.service';
 import { AuthResponse, User } from '@supabase/supabase-js';
 import { Response } from 'express'; // Assurez-vous que cela est bien importé
+import axios from 'axios';
 
 @Injectable()
 export class AuthentificationService {
@@ -15,7 +16,7 @@ export class AuthentificationService {
     const { data, error } = await this.supabase.auth.signInWithPassword({
       email,
       password,
-      
+
     });
 
     if (error) {
@@ -81,8 +82,25 @@ export class AuthentificationService {
     return data.user || null;
   }
 
- 
+
+  getLinkedInAuthUrl(): string {
+    return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${process.env.LINKEDIN_REDIRECT_URI}&scope=openid profile email w_member_social`;
+  }
+
+  async getAccessToken(code: string): Promise<string> {
+    const response = await axios.post('https://www.linkedin.com/oauth/v2/accessToken', null, {
+      params: {
+        grant_type: 'authorization_code',
+        code,
+        client_id: process.env.LINKEDIN_CLIENT_ID,
+        client_secret: process.env.LINKEDIN_CLIENT_SECRET,
+        redirect_uri: process.env.LINKEDIN_REDIRECT_URI,
+      },
+    });
+
+    return response.data.access_token;
+  }
 
 
-  
+
 }

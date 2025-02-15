@@ -121,4 +121,20 @@ export class ScrapedDataService {
 
         return data; // Retourne les données triées
     }
+
+    async count(): Promise<number> {
+        const { count, error } = await this.supabase
+          .from('scraped_data')
+          .select('*', { count: 'exact', head: true });
+    
+        if (error) {
+          throw new Error(`Erreur lors du comptage des idées  : ${error.message}`);
+        }
+    
+        return count ?? 0;
+      }
+    
+    
+
+    
 }

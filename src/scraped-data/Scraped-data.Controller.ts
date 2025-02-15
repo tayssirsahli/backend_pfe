@@ -13,7 +13,7 @@ export class ScrapedDataController {
   ) {
     this.supabase = this.supabaseService.getClient();
 
-   }
+  }
 
   // Route to get all scraped data
   @Get()
@@ -23,10 +23,10 @@ export class ScrapedDataController {
 
 
   // Route to get specific entry by ID
-  @Get(':id')
+ /*  @Get(':id')
   async getScrapedDataById(@Param('id') id: string) {
     return this.scrapedDataService.getScrapedDataById(Number(id));
-  }
+  } */
 
   @Post('add')
   async addScrapedData(
@@ -43,29 +43,29 @@ export class ScrapedDataController {
     try {
       // Récupérer l'utilisateur authentifié via Supabase
       const { data, error } = await this.supabase.auth.getSession();
-  
+
       if (error || !data?.session) {
         throw new HttpException(
           { message: "No active session found", details: "Auth session missing!" },
           HttpStatus.UNAUTHORIZED
         );
       }
-  
+
       const user = data.session.user;
-  
+
       if (!user || !user.id) {
         throw new HttpException(
           { message: "No authenticated user found", details: "User not authenticated!" },
           HttpStatus.UNAUTHORIZED
         );
       }
-  
+
       // Associer les données à l'utilisateur
       const dataToInsert = newData.map((data) => ({
         ...data,
         id_user: user.id, // Supabase stocke les IDs sous forme de string
       }));
-  
+
       return await this.scrapedDataService.addScrapedData(dataToInsert);
     } catch (error) {
       throw new HttpException(
@@ -98,5 +98,11 @@ export class ScrapedDataController {
       throw new Error("Invalid ID: " + id);
     }
     return this.scrapedDataService.deleteScrapedData(id);
+  }
+
+
+  @Get('count')
+  async getCount(): Promise<number> {
+    return this.scrapedDataService.count();
   }
 }

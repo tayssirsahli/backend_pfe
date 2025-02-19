@@ -1,9 +1,14 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { GeneratedIdeaService } from './generated-idea.service';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('generated-idea')
 export class GeneratedIdeaController {
-    constructor(private readonly generatedIdeaService: GeneratedIdeaService) { }
+    constructor(private readonly generatedIdeaService: GeneratedIdeaService) {
+        if (!generatedIdeaService) {
+            throw new Error("GeneratedIdeaService is not initialized");
+        }
+    }
 
     @Post('add')
     async create(@Body() body: { user_id: string; generated_text: string }) {
@@ -22,4 +27,14 @@ export class GeneratedIdeaController {
     async getCount(): Promise<number> {
         return this.generatedIdeaService.count();
     }
+
+    @Post('upload-image')
+    @UseInterceptors(FileInterceptor('image')) 
+    async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    console.log(file);
+      const result = await this.generatedIdeaService.uploadImage(file);
+      return result;
+    }
 }
+
+

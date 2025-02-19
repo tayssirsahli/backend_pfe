@@ -7,17 +7,21 @@ export class LinkedinController {
     constructor(private readonly linkedinService: LinkedinService) { }
 
     @Post('post')
-    async postToLinkedIn(@Body() body: { content: string }, @Headers('authorization') authHeader: string) {
-        const accessToken = authHeader?.replace('Bearer ', '');
-        if (!accessToken) throw new UnauthorizedException('Token manquant');
-
-        return this.linkedinService.postToLinkedIn(accessToken, body.content);
+    async postToLinkedIn(
+      @Body() body: { content: string; imageUrl?: string },
+      @Headers('authorization') authHeader: string
+    ) {
+      const accessToken = authHeader?.replace('Bearer ', '');
+      if (!accessToken) throw new UnauthorizedException('Token manquant');
+    
+      return this.linkedinService.postToLinkedIn(accessToken, body.content, body.imageUrl);
     }
+    
 
 
     @Get('profile')
     async getLinkedInProfile(@Headers('authorization') authHeader: string) {
-        console.log("Authorization header reçu :", authHeader);
+        //console.log("Authorization header reçu :", authHeader);
 
         const accessToken = authHeader?.replace('Bearer ', '');
         if (!accessToken) {

@@ -12,10 +12,14 @@ import { GeneratedIdeaService } from './generated-idea/generated-idea.service';
 import { GeneratedIdeaController } from './generated-idea/generated-idea.controller';
 import { LinkedinModule } from './linkedin/linkedin.module';
 import { GeneratedIdeaModule } from './generated-idea/generated-idea.module';
+import { PostsService } from './posts/posts.service';
+import { PostsController } from './posts/posts.controller';
+import { PrismaModule } from './prisma/prisma.module';
+import { AuthentificationModule } from './authentification/authentification.module';
 
 @Module({
-  imports: [ChatbotModule, ConfigModule.forRoot(), LinkedinModule, GeneratedIdeaModule],
-  controllers: [AppController, AuthController,ScrapedDataController, GeneratedIdeaController],
-  providers: [AppService, AuthentificationService, ScrapedDataService, SupabaseService, GeneratedIdeaService],
+  imports: [ChatbotModule, ConfigModule.forRoot(), LinkedinModule, GeneratedIdeaModule, PrismaModule, AuthentificationModule],
+  controllers: [AppController, AuthController,ScrapedDataController, GeneratedIdeaController, PostsController],
+  providers: [AppService, AuthentificationService, ScrapedDataService, SupabaseService, GeneratedIdeaService, PostsService],
 })
 export class AppModule {}

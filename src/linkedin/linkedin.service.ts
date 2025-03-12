@@ -5,14 +5,15 @@ import * as path from 'path';
 
 @Injectable()
 export class LinkedinService {
-    async uploadImageToLinkedIn(accessToken: string): Promise<{ assetUrn: string; uploadUrl: string }> {
+    async uploadMediaToLinkedIn(accessToken: string, userId: string, mediaType: 'image' | 'video'): Promise<{ assetUrn: string; uploadUrl: string }> {
+        const recipe = mediaType === 'image' ? 'urn:li:digitalmediaRecipe:feedshare-image' : 'urn:li:digitalmediaRecipe:feedshare-video';
         try {
             const uploadResponse = await axios.post(
                 'https://api.linkedin.com/v2/assets?action=registerUpload',
                 {
                     registerUploadRequest: {
-                        owner: `urn:li:person:VD16EZQ1h_`, // Remplace par ton urn
-                        recipes: ["urn:li:digitalmediaRecipe:feedshare-image"],
+                        owner: `urn:li:person:${userId}`,
+                        recipes: [recipe],
                         serviceRelationships: [
                             {
                                 relationshipType: "OWNER",
@@ -33,82 +34,100 @@ export class LinkedinService {
             const assetUrn = uploadResponse.data.value.asset;
             const uploadUrl = uploadResponse.data.value.uploadMechanism["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"].uploadUrl;
 
-            console.log('✅ Upload URL LinkedIn:', uploadUrl);
-
             return { assetUrn, uploadUrl };
         } catch (error) {
-            console.error("❌ Erreur lors de l'enregistrement de l'upload:", error.response?.data || error.message);
-            throw new Error("Impossible d'obtenir l'URL de téléchargement pour l'image.");
+            console.error("❌ Erreur upload media:", error.response?.data || error.message);
+            throw new Error("Erreur lors de l'obtention de l'URL de téléchargement du média.");
         }
     }
 
-    async postToLinkedIn(accessToken: string, content: string, imagePath?: string) {
-        try {
-            let media: { status: string; media: string }[] = [];
-
-            if (imagePath) {
-                console.log('📂 Image reçue:', imagePath);
-
-                // 📌 Convertir le chemin en URL publique si besoin
-                if (!imagePath.startsWith('http')) {
-                    imagePath = `http://localhost:5000/uploads/${path.basename(imagePath)}`;
+    
+        async postToLinkedIn(accessToken: string, userId: string, content: string, mediaPaths: string[]) {
+            try {
+                let mediaAssets: { status: string; media: string; isVideo: boolean }[] = [];
+        
+                // 🚨 Cas où il y a des médias
+                for (const mediaPath of mediaPaths) {
+                    const isVideo = !!mediaPath.match(/\.(mp4|webm|ogg)$/i);
+                    const mediaType = isVideo ? 'video' : 'image';
+        
+                    const { assetUrn, uploadUrl } = await this.uploadMediaToLinkedIn(accessToken, userId, mediaType);
+                    const localPath = path.join(__dirname, '..', '..', 'uploads', path.basename(mediaPath));
+        
+                    if (!fs.existsSync(localPath)) throw new Error(`❌ Fichier introuvable: ${localPath}`);
+        
+                    const mediaFile = fs.readFileSync(localPath);
+                    await axios.put(uploadUrl, mediaFile, {
+                        headers: { 'Content-Type': isVideo ? 'video/mp4' : 'image/png' },
+                    });
+        
+                    mediaAssets.push({ status: "READY", media: assetUrn, isVideo });
                 }
-
-                console.log('🌍 URL publique:', imagePath);
-
-                // ✅ Vérifier si le fichier existe
-                const localPath = path.join(__dirname, '..', '..','uploads', path.basename(imagePath));
-                if (!fs.existsSync(localPath)) {
-                    throw new Error(`❌ Fichier introuvable: ${localPath}`);
-                }
-
-                // 1️⃣ Obtenir une URL d’upload LinkedIn
-                const { assetUrn, uploadUrl } = await this.uploadImageToLinkedIn(accessToken);
-
-                // 2️⃣ Lire et envoyer l’image à LinkedIn
-                const image = fs.readFileSync(localPath);
-                await axios.put(uploadUrl, image, {
-                    headers: { 'Content-Type': 'image/png' },
-                });
-
-                // 3️⃣ Ajouter l’image à la publication
-                media.push({
-                    status: "READY",
-                    media: assetUrn,
-                });
-            }
-
-            // 4️⃣ Publier le post
-            const response = await axios.post(
-                'https://api.linkedin.com/v2/ugcPosts',
-                {
-                    author: `urn:li:person:VD16EZQ1h_`,  // Remplace par ton urn
-                    lifecycleState: 'PUBLISHED',
-                    specificContent: {
-                        'com.linkedin.ugc.ShareContent': {
-                            shareCommentary: { text: content },
-                            shareMediaCategory: imagePath ? 'IMAGE' : 'NONE',
-                            media: media
+        
+                // ✅ 🚨 Si aucun média -> Post texte uniquement
+                const postBody = mediaAssets.length === 0
+                    ? {
+                        author: `urn:li:person:${userId}`,
+                        lifecycleState: 'PUBLISHED',
+                        specificContent: {
+                            'com.linkedin.ugc.ShareContent': {
+                                shareCommentary: { text: content },
+                                shareMediaCategory: 'NONE', // ✅ Important pour les posts texte uniquement
+                            },
                         },
-                    },
-                    visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`,
-                        'X-Restli-Protocol-Version': '2.0.0',
-                        'LinkedIn-Version': '202401',
-                        'Content-Type': 'application/json',
-                    },
-                }
-            );
-
-            console.log('✅ Post publié sur LinkedIn !');
-
-            return response.data;
-        } catch (error) {
-            console.error('❌ Erreur LinkedIn API:', error.response?.data || error.message);
-            throw new Error('Erreur lors de la publication sur LinkedIn');
+                        visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+                    }
+                    : {
+                        author: `urn:li:person:${userId}`,
+                        lifecycleState: 'PUBLISHED',
+                        specificContent: {
+                            'com.linkedin.ugc.ShareContent': {
+                                shareCommentary: { text: content },
+                                shareMediaCategory: mediaAssets.some(asset => asset.isVideo) ? 'VIDEO' : 'IMAGE',
+                                media: mediaAssets.map(asset => ({
+                                    status: "READY",
+                                    description: { text: content },
+                                    media: asset.media,
+                                    title: { text: asset.isVideo ? "Vidéo partagée" : "Image partagée" },
+                                })),
+                            },
+                        },
+                        visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+                    };
+        
+                const response = await axios.post(
+                    'https://api.linkedin.com/v2/ugcPosts',
+                    postBody,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${accessToken}`,
+                            'X-Restli-Protocol-Version': '2.0.0',
+                            'LinkedIn-Version': '202401',
+                            'Content-Type': 'application/json',
+                        },
+                    }
+                );
+        
+                return response.data;
+            } catch (error) {
+                console.error('❌ Erreur LinkedIn API:', error.response?.data || error.message);
+                throw new Error('Erreur lors de la publication sur LinkedIn');
+            }
         }
-    }
+        
+
+        async getPosts(accessToken: string) {
+            try {
+              const response = await axios.get('https://api.linkedin.com/v2/ugcPosts', {
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                },
+              });
+        
+              return response.data;
+            } catch (error) {
+              console.error('Error fetching LinkedIn posts:', error);
+              throw new Error('Failed to fetch LinkedIn posts');
+            }
+          }
 }

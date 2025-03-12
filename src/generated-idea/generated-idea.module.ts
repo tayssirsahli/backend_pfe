@@ -3,6 +3,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { GeneratedIdeaController } from './generated-idea.controller';
 import { GeneratedIdeaService } from './generated-idea.service';
 import { SupabaseModule } from 'src/supabase/supabase.module';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Module({
     imports: [
@@ -11,7 +12,7 @@ import { SupabaseModule } from 'src/supabase/supabase.module';
         }),SupabaseModule
       ],
       controllers: [GeneratedIdeaController],
-      providers: [GeneratedIdeaService],
+      providers: [GeneratedIdeaService,PrismaService],
       exports: [GeneratedIdeaService],  
 })
 export class GeneratedIdeaModule {}

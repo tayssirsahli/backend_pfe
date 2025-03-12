@@ -1,74 +1,52 @@
 import { Injectable } from '@nestjs/common';
-import { SupabaseClient } from '@supabase/supabase-js';
-import { SupabaseService } from 'src/supabase/supabase.service';
+import { PrismaService } from 'src/prisma/prisma.service';
 import * as path from 'path';
-import { diskStorage } from 'multer';
-import { v4 as uuidv4 } from 'uuid';
-import * as crypto from 'crypto';  // Pour générer un nom unique pour chaque fichier 
 import * as fs from 'fs';
-
+import * as crypto from 'crypto';
+import { GeneratedIdeaDto } from 'src/dto/generated-idea_dto';
 
 @Injectable()
 export class GeneratedIdeaService {
-    private supabase: SupabaseClient;
+    constructor(private readonly prisma: PrismaService) {}
 
-    constructor(private readonly supabaseService: SupabaseService) {
-        this.supabase = this.supabaseService.getClient();
-    }
-
-    async createGeneratedIdea(userId: string, generatedText: string) {
-        const { data, error } = await this.supabase
-            .from('generated_idea')
-            .insert([{ user_id: userId, generated_text: generatedText }])
-            .select();
-
-        if (error) throw new Error(error.message);
-        return data;
+    async createGeneratedIdea(generatedIdeaDto: GeneratedIdeaDto) {
+        return await this.prisma.generated_idea.create({
+            data: generatedIdeaDto,
+        });
     }
 
     async getGeneratedIdeas() {
-        const { data, error } = await this.supabase
-            .from('generated_idea')
-            .select('*');
-
-        if (error) throw new Error(error.message);
-        return data;
+        return await this.prisma.generated_idea.findMany();
     }
 
     async count(): Promise<number> {
-        const { count, error } = await this.supabase
-            .from('generated_idea')
-            .select('*', { count: 'exact', head: true });
-
-        if (error) {
-            throw new Error(`Erreur lors du comptage des idées générées : ${error.message}`);
-        }
-
-        return count ?? 0;
+        return await this.prisma.generated_idea.count();
     }
 
+    private readonly uploadDir = path.join(__dirname, '../../uploads');
 
-
-    private readonly uploadDir = path.join(__dirname, '../../uploads'); // Le chemin relatif du dossier des uploads
-
-
-    async uploadImage(file: Express.Multer.File): Promise<{ url: string }> {
-        // Vérifier si le dossier uploads existe, sinon le créer
+    async uploadFile(file: Express.Multer.File): Promise<string> {
         if (!fs.existsSync(this.uploadDir)) {
             fs.mkdirSync(this.uploadDir, { recursive: true });
         }
-
-        // Générer un nom de fichier unique pour éviter les conflits
-        const fileExtension = path.extname(file.originalname);  // Obtient l'extension du fichier (ex: .png)
-        const fileName = crypto.randomBytes(16).toString('hex') + fileExtension;  // Génère un nom unique
-
-        // Sauvegarder le fichier sur le serveur
+        const fileName = crypto.randomBytes(16).toString('hex') + path.extname(file.originalname);
         const filePath = path.join(this.uploadDir, fileName);
-        fs.writeFileSync(filePath, file.buffer);  // Sauvegarder le fichier en utilisant le buffer
-        console.log(filePath);
-        // Retourner l'URL du fichier sauvegardé
-        const imageUrl = `/uploads/${fileName}`;
-        console.log(imageUrl);
-        return { url: imageUrl };
+        fs.writeFileSync(filePath, file.buffer);
+        return `/uploads/${fileName}`;
+    }
+
+    async countByMonth(): Promise<any[]> {
+        const ideas = await this.prisma.generated_idea.findMany({
+            select: { created_at: true },
+            orderBy: { created_at: 'asc' },
+        });
+
+        const groupedByMonth = ideas.reduce((acc, item) => {
+            const month = new Date(item.created_at).toLocaleString('default', { month: 'short', year: 'numeric' });
+            acc[month] = (acc[month] || 0) + 1;
+            return acc;
+        }, {});
+
+        return Object.entries(groupedByMonth).map(([month, count]) => ({ month, count }));
     }
 }

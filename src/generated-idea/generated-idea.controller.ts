@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Post, Body, UploadedFile, UseInterceptors, UploadedFiles } from '@nestjs/common';
 import { GeneratedIdeaService } from './generated-idea.service';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { GeneratedIdeaDto } from 'src/dto/generated-idea_dto';
 
 @Controller('generated-idea')
 export class GeneratedIdeaController {
@@ -11,11 +12,11 @@ export class GeneratedIdeaController {
     }
 
     @Post('add')
-    async create(@Body() body: { user_id: string; generated_text: string }) {
+    async create(@Body() body: GeneratedIdeaDto) {
         if (!body.user_id || !body.generated_text) {
             return { error: 'Missing user_id or generated_text' };
         }
-        return await this.generatedIdeaService.createGeneratedIdea(body.user_id, body.generated_text);
+        return await this.generatedIdeaService.createGeneratedIdea(body);
     }
 
     @Get()
@@ -28,12 +29,15 @@ export class GeneratedIdeaController {
         return this.generatedIdeaService.count();
     }
 
-    @Post('upload-image')
-    @UseInterceptors(FileInterceptor('image')) 
-    async uploadImage(@UploadedFile() file: Express.Multer.File) {
-    console.log(file);
-      const result = await this.generatedIdeaService.uploadImage(file);
-      return result;
+    @Post('upload-media')
+    @UseInterceptors(FilesInterceptor('media', 10))
+    async uploadMedia(@UploadedFiles() files: Express.Multer.File[]) {
+      const urls = await Promise.all(files.map((file) => this.generatedIdeaService.uploadFile(file)));
+      return { urls };
+    }
+    @Get('count-by-month')
+    async getIdeasByMonth() {
+        return await this.generatedIdeaService.countByMonth();
     }
 }
 

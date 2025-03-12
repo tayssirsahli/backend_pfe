@@ -3,6 +3,7 @@ import { Controller, Get, Param, Post, Body, Put, Delete, Req, UseGuards, Query,
 import { ScrapedDataService } from './scraped_data.service';
 import { AuthentificationService } from 'src/authentification/authentification.service'; // Import the service
 import { SupabaseService } from 'src/supabase/supabase.service';
+import { ScrapedDataDto } from 'src/dto/scraped-data_dto';
 
 @Controller('scraped-data')
 export class ScrapedDataController {
@@ -30,30 +31,24 @@ export class ScrapedDataController {
 
   @Post('add')
   async addScrapedData(
-    @Body() newData: {
-      author: string;
-      selected_text: string;
-      image_url: string;
-      comments: string;
-      hashtags: string,
-      title: string,
-      platform: string,
-    }[],
+    @Body() newData: ScrapedDataDto[],  // Utilisation du DTO
   ) {
     try {
       // Récupérer l'utilisateur authentifié via Supabase
-      const { data, error } = await this.supabase.auth.getSession();
+      const session = await this.authService.getSession();
+      console.log("Session:", session); // Debugging
+      
 
-      if (error || !data?.session) {
+      if (!session) {
         throw new HttpException(
           { message: "No active session found", details: "Auth session missing!" },
           HttpStatus.UNAUTHORIZED
         );
       }
 
-      const user = data.session.user;
-
-      if (!user || !user.id) {
+      const user_id = session.user_id;
+      console.log("User ID:", user_id); // Debugging
+      if (!user_id) {
         throw new HttpException(
           { message: "No authenticated user found", details: "User not authenticated!" },
           HttpStatus.UNAUTHORIZED
@@ -63,7 +58,7 @@ export class ScrapedDataController {
       // Associer les données à l'utilisateur
       const dataToInsert = newData.map((data) => ({
         ...data,
-        id_user: user.id, // Supabase stocke les IDs sous forme de string
+        id_user: user_id, // Supabase stocke les IDs sous forme de string
       }));
 
       return await this.scrapedDataService.addScrapedData(dataToInsert);
@@ -79,14 +74,9 @@ export class ScrapedDataController {
   @Put(':id')
   async updateScrapedData(
     @Param('id') id: string,
-    @Body() updatedData: {
-      author?: string;
-      selected_text?: string;
-      image_url?: string;
-      comments?: string;
-    }
+    @Body() updatedData: Partial<ScrapedDataDto>
   ) {
-    return this.scrapedDataService.updateScrapedData(Number(id), updatedData);
+    return this.scrapedDataService.updateScrapedData(id, updatedData);
   }
 
   // Route to delete an entry

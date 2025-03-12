@@ -1,69 +1,46 @@
-import { Controller, Post, Body, ValidationPipe, Get, Res, Req, Query, Redirect } from '@nestjs/common';
+import { Controller, Post, Body, ValidationPipe, Get, Res, Req, Query, Redirect, Put, UseGuards, Request } from '@nestjs/common';
 import { AuthentificationService } from './authentification.service';
-import { Response } from 'express';
-import { SupabaseService } from 'src/supabase/supabase.service';
+import { UserDto } from '../dto/user_dto';
+import { JwtAuthGuard } from 'src/guard/JwtAuthGuard';
 
 @Controller('auth')
 export class AuthController {
-  private supabase;
-
-  constructor(private readonly authService: AuthentificationService, private readonly supabaseService: SupabaseService) {
-    this.supabase = this.supabaseService.getClient();
-  }
+  constructor(private readonly authService: AuthentificationService) { }
 
   @Post('sign-in')
-  async signIn(@Body() body: { email: string; password: string }) {
+  async signIn(@Body() body: { email: string; password: string }, @Res() res) {
     const { email, password } = body;
-    const authResponse = await this.authService.signIn(email, password);
+    const authResponse = await this.authService.signIn(email, password, res);
     return authResponse;
   }
 
-  @Post('session')
+
+
+  @Get('session')
   async getSession() {
-    return await this.authService.getSession();
-  }
-
-  @Get('check-session')
-  async checkSession() {
-    try {
-      const user = await this.authService.getUser();
-      if (!user) {
-        return { message: 'No user logged in' }; // Aucun utilisateur connecté
-      }
-      return { message: 'Session is valid', user };
-    } catch (error) {
-      console.error('Error checking session:', error);
-      return { message: 'Failed to fetch user', details: error.message };
-    }
+    const session = await this.authService.getSession();
+    return session || { message: 'Session not found' };
   }
 
 
-
-  // Route pour la déconnexion
   @Post('sign-out')
-  async signOut() {
-    await this.authService.signOut();
-    return { message: 'Déconnexion réussie' };
+  async signOut(@Res() res) {
+    return this.authService.signOut(res);
   }
+
   @Post('sign-up')
-  async signUp(@Body() body: { email: string; password: string }) {
-    const { email, password } = body;
-    try {
-      // Appeler la méthode signUp du service AuthService
-      const authResponse = await this.authService.signUp(email, password);
-      return { message: 'Signup successful', data: authResponse }; // Répondre avec succès
-    } catch (error) {
-      // Gérer les erreurs éventuelles et répondre avec un message d'erreur
-      return { message: error.response.message, details: error.response.details };
-    }
+  async signUp(@Body(ValidationPipe) userDto: UserDto) {
+    const authResponse = await this.authService.signUp(userDto);
+    return { message: 'Signup successful', data: authResponse };
   }
+
   @Get('current-user')
-  async getCurrentUser() {
-    const user = await this.authService.getUser(); // Passer 'request' à la fonction
+  @UseGuards(JwtAuthGuard)
+  async getCurrentUser(@Request() req): Promise<any> {
+    console.log("User in request:", req.user);
+    const user = await this.authService.getUser(req);
     return user || { message: 'No user logged in' };
   }
-
-
 
   @Get('linkedin')
   @Redirect()
@@ -75,5 +52,10 @@ export class AuthController {
   async handleLinkedInCallback(@Query('code') code: string, @Res() res) {
     const accessToken = await this.authService.getAccessToken(code);
     res.redirect(`http://localhost:5174?token=${accessToken}`);
+  }
+
+  @Put('update-profile')
+  async updateProfile(@Body(ValidationPipe) userDto: UserDto) {
+    return await this.authService.updateUser(userDto);
   }
 }
